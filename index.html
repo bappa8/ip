@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My IP Info</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 40px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .row:last-child {
+            border-bottom: none;
+        }
+
+        .label {
+            color: #a0a0b8;
+            font-size: 0.95rem;
+        }
+
+        .value {
+            font-weight: 500;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-all;
+        }
+
+        .loading {
+            text-align: center;
+            color: #a0a0b8;
+            padding: 20px 0;
+        }
+
+        .error {
+            text-align: center;
+            color: #ff6b6b;
+            padding: 20px 0;
+        }
+
+        @media (max-width: 480px) {
+            .card { padding: 24px; }
+            h1 { font-size: 1.4rem; }
+            .label, .value { font-size: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>IP Information</h1>
+        <div id="content"><div class="loading">Loading...</div></div>
+    </div>
+
+    <script>
+        const fields = [
+            { key: 'query',       label: 'IPv4 Address' },
+            { key: 'ipv6',        label: 'IPv6 Address' },
+            { key: 'country_name', label: 'Country' },
+            { key: 'city',        label: 'City' },
+            { key: 'timezone',    label: 'Time Zone' },
+            { key: 'org',         label: 'ISP / Organization' }
+        ];
+
+        async function load() {
+            const content = document.getElementById('content');
+
+            try {
+                // Fetch IPv4 info
+                const res = await fetch('https://ipapi.co/json/');
+                const data = await res.json();
+
+                if (data.error) {
+                    content.innerHTML = '<div class="error">Could not retrieve IP info.</div>';
+                    return;
+                }
+
+                // Rename fields to match our display
+                data.query = data.ip;
+
+                // Try to get IPv6
+                let ipv6 = 'N/A';
+                try {
+                    const res6 = await fetch('https://api64.ipify.org?format=json');
+                    const data6 = await res6.json();
+                    ipv6 = data6.ip || 'N/A';
+                } catch {}
+
+                data.ipv6 = ipv6;
+
+                let html = '';
+                for (const f of fields) {
+                    html += `<div class="row">
+                        <span class="label">${f.label}</span>
+                        <span class="value">${data[f.key] || 'N/A'}</span>
+                    </div>`;
+                }
+                content.innerHTML = html;
+
+            } catch (err) {
+                content.innerHTML = '<div class="error">Failed to fetch IP information. Please check your connection.</div>';
+            }
+        }
+
+        load();
+    </script>
+</body>
+</html>
