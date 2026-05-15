@@ -95,7 +95,22 @@
         }
 
         async function tryAPIs() {
-            // Try ipwho.is first (free, HTTPS, CORS-friendly)
+            // Try ipinfo.io first (free, HTTPS, no CORS issues)
+            try {
+                const res = await fetchWithTimeout('https://ipinfo.io/json');
+                const data = await res.json();
+                if (data.ip) {
+                    return {
+                        ip: data.ip,
+                        country: data.country,
+                        city: data.city,
+                        timezone: data.timezone,
+                        org: data.org
+                    };
+                }
+            } catch (e) { console.log('ipinfo.io failed:', e); }
+
+            // Fallback: ipwho.is
             try {
                 const res = await fetchWithTimeout('https://ipwho.is/');
                 const data = await res.json();
@@ -105,11 +120,10 @@
                         country: data.country,
                         city: data.city,
                         timezone: data.timezone?.id || data.timezone,
-                        org: data.connection?.isp || data.org,
-                        ipv6: data.type === 'ipv6' ? data.ip : 'N/A'
+                        org: data.connection?.isp || data.connection?.org
                     };
                 }
-            } catch {}
+            } catch (e) { console.log('ipwho.is failed:', e); }
 
             // Fallback: ipapi.co
             try {
@@ -121,64 +135,46 @@
                         country: data.country_name,
                         city: data.city,
                         timezone: data.timezone,
-                        org: data.org,
-                        ipv6: 'N/A'
+                        org: data.org
                     };
                 }
-            } catch {}
-
-            // Fallback: ip-api.com (HTTP only — works when opened locally)
-            try {
-                const res = await fetchWithTimeout('http://ip-api.com/json/?fields=query,country,city,timezone,isp,org');
-                const data = await res.json();
-                if (data.status !== 'fail') {
-                    return {
-                        ip: data.query,
-                        country: data.country,
-                        city: data.city,
-                        timezone: data.timezone,
-                        org: data.isp,
-                        ipv6: 'N/A'
-                    };
-                }
-            } catch {}
+            } catch (e) { console.log('ipapi.co failed:', e); }
 
             return null;
+        }
+
+        async function getIPv6() {
+            try {
+                const res = await fetchWithTimeout('https://api64.ipify.org?format=json');
+                const d = await res.json();
+                return d.ip || 'N/A';
+            } catch { return 'N/A'; }
         }
 
         async function load() {
             const content = document.getElementById('content');
 
-            const data = await tryAPIs();
+            const [data, ipv6] = await Promise.all([tryAPIs(), getIPv6()]);
 
             if (!data) {
                 content.innerHTML = '<div class="error">Failed to fetch IP information.<br>Please check your connection.</div>';
                 return;
             }
 
-            // Try to get IPv6 separately if not already found
-            if (data.ipv6 === 'N/A') {
-                try {
-                    const res6 = await fetchWithTimeout('https://api64.ipify.org?format=json');
-                    const d6 = await res6.json();
-                    if (d6.ip && d6.ip !== data.ip) data.ipv6 = d6.ip;
-                } catch {}
-            }
-
-            const fields = [
-                { label: 'IPv4 Address',    value: data.ip },
-                { label: 'IPv6 Address',    value: data.ipv6 },
-                { label: 'Country',         value: data.country },
-                { label: 'City',            value: data.city },
-                { label: 'Time Zone',       value: data.timezone },
+            const rows = [
+                { label: 'IPv4 Address',       value: data.ip },
+                { label: 'IPv6 Address',       value: ipv6 },
+                { label: 'Country',            value: data.country },
+                { label: 'City',               value: data.city },
+                { label: 'Time Zone',          value: data.timezone },
                 { label: 'ISP / Organization', value: data.org }
             ];
 
             let html = '';
-            for (const f of fields) {
+            for (const r of rows) {
                 html += `<div class="row">
-                    <span class="label">${f.label}</span>
-                    <span class="value">${f.value || 'N/A'}</span>
+                    <span class="label">${r.label}</span>
+                    <span class="value">${r.value || 'N/A'}</span>
                 </div>`;
             }
             content.innerHTML = html;
