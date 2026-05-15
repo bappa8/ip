@@ -88,53 +88,100 @@
     </div>
 
     <script>
-        const fields = [
-            { key: 'query',       label: 'IPv4 Address' },
-            { key: 'ipv6',        label: 'IPv6 Address' },
-            { key: 'country_name', label: 'Country' },
-            { key: 'city',        label: 'City' },
-            { key: 'timezone',    label: 'Time Zone' },
-            { key: 'org',         label: 'ISP / Organization' }
-        ];
+        function fetchWithTimeout(url, timeout = 8000) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeout);
+            return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+        }
+
+        async function tryAPIs() {
+            // Try ipwho.is first (free, HTTPS, CORS-friendly)
+            try {
+                const res = await fetchWithTimeout('https://ipwho.is/');
+                const data = await res.json();
+                if (data.success !== false) {
+                    return {
+                        ip: data.ip,
+                        country: data.country,
+                        city: data.city,
+                        timezone: data.timezone?.id || data.timezone,
+                        org: data.connection?.isp || data.org,
+                        ipv6: data.type === 'ipv6' ? data.ip : 'N/A'
+                    };
+                }
+            } catch {}
+
+            // Fallback: ipapi.co
+            try {
+                const res = await fetchWithTimeout('https://ipapi.co/json/');
+                const data = await res.json();
+                if (!data.error) {
+                    return {
+                        ip: data.ip,
+                        country: data.country_name,
+                        city: data.city,
+                        timezone: data.timezone,
+                        org: data.org,
+                        ipv6: 'N/A'
+                    };
+                }
+            } catch {}
+
+            // Fallback: ip-api.com (HTTP only — works when opened locally)
+            try {
+                const res = await fetchWithTimeout('http://ip-api.com/json/?fields=query,country,city,timezone,isp,org');
+                const data = await res.json();
+                if (data.status !== 'fail') {
+                    return {
+                        ip: data.query,
+                        country: data.country,
+                        city: data.city,
+                        timezone: data.timezone,
+                        org: data.isp,
+                        ipv6: 'N/A'
+                    };
+                }
+            } catch {}
+
+            return null;
+        }
 
         async function load() {
             const content = document.getElementById('content');
 
-            try {
-                // Fetch IPv4 info
-                const res = await fetch('https://ipapi.co/json/');
-                const data = await res.json();
+            const data = await tryAPIs();
 
-                if (data.error) {
-                    content.innerHTML = '<div class="error">Could not retrieve IP info.</div>';
-                    return;
-                }
-
-                // Rename fields to match our display
-                data.query = data.ip;
-
-                // Try to get IPv6
-                let ipv6 = 'N/A';
-                try {
-                    const res6 = await fetch('https://api64.ipify.org?format=json');
-                    const data6 = await res6.json();
-                    ipv6 = data6.ip || 'N/A';
-                } catch {}
-
-                data.ipv6 = ipv6;
-
-                let html = '';
-                for (const f of fields) {
-                    html += `<div class="row">
-                        <span class="label">${f.label}</span>
-                        <span class="value">${data[f.key] || 'N/A'}</span>
-                    </div>`;
-                }
-                content.innerHTML = html;
-
-            } catch (err) {
-                content.innerHTML = '<div class="error">Failed to fetch IP information. Please check your connection.</div>';
+            if (!data) {
+                content.innerHTML = '<div class="error">Failed to fetch IP information.<br>Please check your connection.</div>';
+                return;
             }
+
+            // Try to get IPv6 separately if not already found
+            if (data.ipv6 === 'N/A') {
+                try {
+                    const res6 = await fetchWithTimeout('https://api64.ipify.org?format=json');
+                    const d6 = await res6.json();
+                    if (d6.ip && d6.ip !== data.ip) data.ipv6 = d6.ip;
+                } catch {}
+            }
+
+            const fields = [
+                { label: 'IPv4 Address',    value: data.ip },
+                { label: 'IPv6 Address',    value: data.ipv6 },
+                { label: 'Country',         value: data.country },
+                { label: 'City',            value: data.city },
+                { label: 'Time Zone',       value: data.timezone },
+                { label: 'ISP / Organization', value: data.org }
+            ];
+
+            let html = '';
+            for (const f of fields) {
+                html += `<div class="row">
+                    <span class="label">${f.label}</span>
+                    <span class="value">${f.value || 'N/A'}</span>
+                </div>`;
+            }
+            content.innerHTML = html;
         }
 
         load();
