@@ -31,7 +31,10 @@
         .label { color: #a0a0b8; font-size: 0.95rem; }
         .value { font-weight: 500; text-align: right; max-width: 60%; word-break: break-all; }
         .loading { text-align: center; color: #a0a0b8; padding: 20px 0; }
-        .error { text-align: center; color: #ff6b6b; padding: 20px 0; }
+        .error { text-align: center; color: #ff6b6b; padding: 20px 0; font-size: 0.9rem; line-height: 1.6; }
+        details { margin-top: 12px; }
+        summary { cursor: pointer; font-size: 0.8rem; opacity: 0.5; }
+        pre { font-size: 0.7rem; opacity: 0.6; margin-top: 8px; white-space: pre-wrap; word-break: break-all; }
         @media (max-width: 480px) {
             .card { padding: 24px; }
             h1 { font-size: 1.4rem; }
@@ -45,67 +48,93 @@
         <div id="content"><div class="loading">Loading...</div></div>
     </div>
     <script>
-        function fetchWithTimeout(url, timeout = 8000) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeout);
-            return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
-        }
+        const log = [];
 
-        async function tryAPIs() {
+        async function tryFetch(name, url, parse) {
             try {
-                const res = await fetchWithTimeout('https://ipwho.is/');
-                const data = await res.json();
-                if (data.success && data.ip) {
-                    return {
-                        ip:       data.ip,
-                        country:  data.country  ?? 'N/A',
-                        city:     data.city      ?? 'N/A',
-                        timezone: data.timezone?.id ?? 'N/A',
-                        org:      data.connection?.isp ?? data.connection?.org ?? 'N/A'
-                    };
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), 6000);
+                const res = await fetch(url, { signal: ctrl.signal });
+                clearTimeout(t);
+                log.push(`✓ ${name} HTTP ${res.status}`);
+                const result = await parse(res);
+                if (result && result.ip) {
+                    log.push(`  → got ip: ${result.ip}`);
+                    return result;
                 }
-            } catch (e) {}
-
-            try {
-                const res = await fetchWithTimeout('https://ipapi.co/json/');
-                const data = await res.json();
-                if (!data.error && data.ip) {
-                    return {
-                        ip:       data.ip,
-                        country:  data.country_name ?? 'N/A',
-                        city:     data.city          ?? 'N/A',
-                        timezone: data.timezone      ?? 'N/A',
-                        org:      data.org            ?? 'N/A'
-                    };
-                }
-            } catch (e) {}
-
-            try {
-                const res = await fetchWithTimeout('https://api.ipify.org?format=json');
-                const data = await res.json();
-                if (data.ip) {
-                    return { ip: data.ip, country: 'N/A', city: 'N/A', timezone: 'N/A', org: 'N/A' };
-                }
-            } catch (e) {}
-
+                log.push(`  → no ip in response`);
+            } catch (e) {
+                log.push(`✗ ${name}: ${e.message}`);
+            }
             return null;
-        }
-
-        async function getIPv6() {
-            try {
-                const res = await fetchWithTimeout('https://api64.ipify.org?format=json');
-                const d = await res.json();
-                return (d.ip && d.ip.includes(':')) ? d.ip : 'N/A';
-            } catch { return 'N/A'; }
         }
 
         async function load() {
             const content = document.getElementById('content');
-            const [data, ipv6] = await Promise.all([tryAPIs(), getIPv6()]);
+            let data = null;
+
+            // 1. Cloudflare trace — plain text, no JSON, works everywhere
+            data = await tryFetch('cloudflare/cdn-cgi/trace', 'https://cloudflare.com/cdn-cgi/trace', async res => {
+                const text = await res.text();
+                const obj = Object.fromEntries(text.trim().split('\n').filter(l=>l.includes('=')).map(l => l.split('=')));
+                return obj.ip ? { ip: obj.ip, country: obj.loc, city: 'N/A', timezone: 'N/A', org: 'N/A' } : null;
+            });
+
+            // 2. ipwho.is
+            if (!data) data = await tryFetch('ipwho.is', 'https://ipwho.is/', async res => {
+                const d = await res.json();
+                return (d.success && d.ip) ? {
+                    ip: d.ip, country: d.country, city: d.city,
+                    timezone: d.timezone?.id || 'N/A',
+                    org: d.connection?.isp || d.connection?.org || 'N/A'
+                } : null;
+            });
+
+            // 3. ipapi.co
+            if (!data) data = await tryFetch('ipapi.co', 'https://ipapi.co/json/', async res => {
+                const d = await res.json();
+                return (!d.error && d.ip) ? { ip: d.ip, country: d.country_name, city: d.city, timezone: d.timezone, org: d.org } : null;
+            });
+
+            // 4. ip.sb
+            if (!data) data = await tryFetch('ip.sb', 'https://api.ip.sb/geoip', async res => {
+                const d = await res.json();
+                return d.ip ? { ip: d.ip, country: d.country, city: d.city, timezone: d.timezone, org: d.isp } : null;
+            });
+
+            // 5. ipify — IP only, last resort
+            if (!data) data = await tryFetch('ipify', 'https://api.ipify.org?format=json', async res => {
+                const d = await res.json();
+                return d.ip ? { ip: d.ip, country: 'N/A', city: 'N/A', timezone: 'N/A', org: 'N/A' } : null;
+            });
 
             if (!data) {
-                content.innerHTML = '<div class="error">Failed to fetch IP information.<br>Please check your connection.</div>';
+                content.innerHTML = `<div class="error">
+                    Failed to fetch IP information.<br>Please check your connection.
+                    <details><summary>Debug info</summary><pre>${log.join('\n')}</pre></details>
+                </div>`;
                 return;
+            }
+
+            // Try to get IPv6
+            let ipv6 = 'N/A';
+            try {
+                const r = await fetch('https://api64.ipify.org?format=json', { signal: AbortSignal.timeout(4000) });
+                const d = await r.json();
+                if (d.ip && d.ip.includes(':')) ipv6 = d.ip;
+            } catch(e) {}
+
+            // If cloudflare only gave us country code, enrich with ipwho.is using the known IP
+            if (data.city === 'N/A' && data.ip) {
+                const enriched = await tryFetch('ipwho.is/'+data.ip, `https://ipwho.is/${data.ip}`, async res => {
+                    const d = await res.json();
+                    return (d.success && d.ip) ? {
+                        ip: d.ip, country: d.country, city: d.city,
+                        timezone: d.timezone?.id || 'N/A',
+                        org: d.connection?.isp || d.connection?.org || 'N/A'
+                    } : null;
+                });
+                if (enriched) data = enriched;
             }
 
             const rows = [
