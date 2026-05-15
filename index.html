@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My IP Info</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
@@ -20,60 +15,23 @@
             align-items: center;
             color: #fff;
         }
-
         .card {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255,255,255,0.05);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 16px;
             padding: 40px;
             width: 90%;
             max-width: 500px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 1.8rem;
-            font-weight: 600;
-        }
-
-        .row {
-            display: flex;
-            justify-content: space-between;
-            padding: 14px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .row:last-child {
-            border-bottom: none;
-        }
-
-        .label {
-            color: #a0a0b8;
-            font-size: 0.95rem;
-        }
-
-        .value {
-            font-weight: 500;
-            text-align: right;
-            max-width: 60%;
-            word-break: break-all;
-        }
-
-        .loading {
-            text-align: center;
-            color: #a0a0b8;
-            padding: 20px 0;
-        }
-
-        .error {
-            text-align: center;
-            color: #ff6b6b;
-            padding: 20px 0;
-        }
-
+        h1 { text-align: center; margin-bottom: 30px; font-size: 1.8rem; font-weight: 600; }
+        .row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .row:last-child { border-bottom: none; }
+        .label { color: #a0a0b8; font-size: 0.95rem; }
+        .value { font-weight: 500; text-align: right; max-width: 60%; word-break: break-all; }
+        .loading { text-align: center; color: #a0a0b8; padding: 20px 0; }
+        .error { text-align: center; color: #ff6b6b; padding: 20px 0; }
         @media (max-width: 480px) {
             .card { padding: 24px; }
             h1 { font-size: 1.4rem; }
@@ -86,7 +44,6 @@
         <h1>IP Information</h1>
         <div id="content"><div class="loading">Loading...</div></div>
     </div>
-
     <script>
         function fetchWithTimeout(url, timeout = 8000) {
             const controller = new AbortController();
@@ -95,50 +52,45 @@
         }
 
         async function tryAPIs() {
-            // Try ipinfo.io first (free, HTTPS, no CORS issues)
-            try {
-                const res = await fetchWithTimeout('https://ipinfo.io/json');
-                const data = await res.json();
-                if (data.ip) {
-                    return {
-                        ip: data.ip,
-                        country: data.country,
-                        city: data.city,
-                        timezone: data.timezone,
-                        org: data.org
-                    };
-                }
-            } catch (e) { console.log('ipinfo.io failed:', e); }
-
-            // Fallback: ipwho.is
+            // 1. ipwho.is — HTTPS, free, no token, confirmed working
             try {
                 const res = await fetchWithTimeout('https://ipwho.is/');
                 const data = await res.json();
-                if (data.success !== false) {
+                if (data.success && data.ip) {
                     return {
-                        ip: data.ip,
-                        country: data.country,
-                        city: data.city,
-                        timezone: data.timezone?.id || data.timezone,
-                        org: data.connection?.isp || data.connection?.org
+                        ip:       data.ip,
+                        country:  data.country,
+                        city:     data.city,
+                        timezone: data.timezone && data.timezone.id ? data.timezone.id : 'N/A',
+                        org:      data.connection && (data.connection.isp || data.connection.org)
+                                    ? (data.connection.isp || data.connection.org) : 'N/A'
                     };
                 }
             } catch (e) { console.log('ipwho.is failed:', e); }
 
-            // Fallback: ipapi.co
+            // 2. ipapi.co — HTTPS fallback
             try {
                 const res = await fetchWithTimeout('https://ipapi.co/json/');
                 const data = await res.json();
-                if (!data.error) {
+                if (!data.error && data.ip) {
                     return {
-                        ip: data.ip,
-                        country: data.country_name,
-                        city: data.city,
+                        ip:       data.ip,
+                        country:  data.country_name,
+                        city:     data.city,
                         timezone: data.timezone,
-                        org: data.org
+                        org:      data.org
                     };
                 }
             } catch (e) { console.log('ipapi.co failed:', e); }
+
+            // 3. Last resort: ipify (IP only)
+            try {
+                const res = await fetchWithTimeout('https://api.ipify.org?format=json');
+                const data = await res.json();
+                if (data.ip) {
+                    return { ip: data.ip, country: 'N/A', city: 'N/A', timezone: 'N/A', org: 'N/A' };
+                }
+            } catch (e) { console.log('ipify failed:', e); }
 
             return null;
         }
@@ -147,13 +99,12 @@
             try {
                 const res = await fetchWithTimeout('https://api64.ipify.org?format=json');
                 const d = await res.json();
-                return d.ip || 'N/A';
+                return (d.ip && d.ip.includes(':')) ? d.ip : 'N/A';
             } catch { return 'N/A'; }
         }
 
         async function load() {
             const content = document.getElementById('content');
-
             const [data, ipv6] = await Promise.all([tryAPIs(), getIPv6()]);
 
             if (!data) {
