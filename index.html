@@ -4,51 +4,190 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My IP Info</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0a1628 0%, #0d2137 40%, #0a2e2a 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             color: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: -30%;
+            left: -20%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0,210,150,0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -20%;
+            right: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(0,140,255,0.1) 0%, transparent 70%);
+            pointer-events: none;
         }
         .card {
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px;
-            padding: 40px;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            padding: 48px 44px;
+            width: 92%;
+            max-width: 580px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+            position: relative;
+            z-index: 1;
         }
-        h1 { text-align: center; margin-bottom: 30px; font-size: 1.8rem; font-weight: 600; }
-        .row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .card-header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        .icon {
+            width: 62px;
+            height: 62px;
+            background: linear-gradient(135deg, #00d296, #0088ff);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 18px;
+            font-size: 30px;
+        }
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #ffffff;
+        }
+        .subtitle {
+            font-size: 1.1rem;
+            color: rgba(255,255,255,0.4);
+            margin-top: 6px;
+            font-weight: 300;
+        }
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+            margin-bottom: 8px;
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
         .row:last-child { border-bottom: none; }
-        .label { color: #a0a0b8; font-size: 0.95rem; }
-        .value { font-weight: 500; text-align: right; max-width: 60%; word-break: break-all; }
-        .loading { text-align: center; color: #a0a0b8; padding: 20px 0; }
-        .error { text-align: center; color: #ff6b6b; padding: 20px 0; font-size: 0.9rem; line-height: 1.6; }
+        .row-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .row-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .label {
+            color: rgba(255,255,255,0.55);
+            font-size: 1.15rem;
+            font-weight: 400;
+        }
+        .value {
+            font-weight: 600;
+            font-size: 1.2rem;
+            text-align: right;
+            max-width: 55%;
+            word-break: break-all;
+            color: #ffffff;
+        }
+        .value.blood-red {
+            color: #c0392b;
+            text-shadow: 0 0 18px rgba(192,57,43,0.55), 0 0 6px rgba(192,57,43,0.3);
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .loading {
+            text-align: center;
+            color: rgba(255,255,255,0.4);
+            padding: 30px 0;
+            font-size: 1.15rem;
+        }
+        .loading::after {
+            content: '';
+            display: block;
+            width: 36px;
+            height: 36px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: #00d296;
+            border-radius: 50%;
+            margin: 18px auto 0;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error { text-align: center; color: #ff6b6b; padding: 20px 0; font-size: 1.05rem; line-height: 1.6; }
         details { margin-top: 12px; }
-        summary { cursor: pointer; font-size: 0.8rem; opacity: 0.5; }
-        pre { font-size: 0.7rem; opacity: 0.6; margin-top: 8px; white-space: pre-wrap; word-break: break-all; }
+        summary { cursor: pointer; font-size: 0.85rem; opacity: 0.4; }
+        pre { font-size: 0.75rem; opacity: 0.5; margin-top: 8px; white-space: pre-wrap; word-break: break-all; }
         @media (max-width: 480px) {
-            .card { padding: 24px; }
-            h1 { font-size: 1.4rem; }
-            .label, .value { font-size: 0.85rem; }
+            .card { padding: 32px 22px; }
+            h1 { font-size: 1.7rem; }
+            .label { font-size: 1rem; }
+            .value { font-size: 1.05rem; }
+            .value.blood-red { font-size: 1.15rem; }
         }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>IP Information</h1>
-        <div id="content"><div class="loading">Loading...</div></div>
+        <div class="card-header">
+            <div class="icon">🌐</div>
+            <h1>IP Information</h1>
+
+        </div>
+        <div class="divider"></div>
+        <div id="content"><div class="loading">Fetching your info</div></div>
+    </div>
+    <div style="position: fixed; bottom: 18px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.3); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 300; z-index: 10;">
+        &copy; Created by Bappa Ghosh. All rights reserved.
     </div>
     <script>
         const log = [];
+
+        function formatTimezone(tz) {
+            if (!tz || tz === 'N/A') return 'N/A';
+            try {
+                const formatter = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' });
+                const parts = formatter.formatToParts(new Date());
+                const offset = parts.find(p => p.type === 'timeZoneName')?.value || '';
+                const match = offset.match(/GMT([+-])(\d+)(?::(\d+))?/);
+                if (match) {
+                    const sign = match[1];
+                    const hours = match[2].padStart(2, '0');
+                    const mins = (match[3] || '00').padStart(2, '0');
+                    return `${sign}${hours}:${mins} GMT`;
+                }
+                return offset || tz;
+            } catch(e) { return tz; }
+        }
 
         async function tryFetch(name, url, parse) {
             try {
@@ -58,14 +197,9 @@
                 clearTimeout(t);
                 log.push(`✓ ${name} HTTP ${res.status}`);
                 const result = await parse(res);
-                if (result && result.ip) {
-                    log.push(`  → got ip: ${result.ip}`);
-                    return result;
-                }
+                if (result && result.ip) { log.push(`  → got ip: ${result.ip}`); return result; }
                 log.push(`  → no ip in response`);
-            } catch (e) {
-                log.push(`✗ ${name}: ${e.message}`);
-            }
+            } catch (e) { log.push(`✗ ${name}: ${e.message}`); }
             return null;
         }
 
@@ -73,50 +207,37 @@
             const content = document.getElementById('content');
             let data = null;
 
-            // 1. Cloudflare trace — plain text, no JSON, works everywhere
-            data = await tryFetch('cloudflare/cdn-cgi/trace', 'https://cloudflare.com/cdn-cgi/trace', async res => {
+            data = await tryFetch('cloudflare', 'https://cloudflare.com/cdn-cgi/trace', async res => {
                 const text = await res.text();
                 const obj = Object.fromEntries(text.trim().split('\n').filter(l=>l.includes('=')).map(l => l.split('=')));
                 return obj.ip ? { ip: obj.ip, country: obj.loc, city: 'N/A', timezone: 'N/A', org: 'N/A' } : null;
             });
 
-            // 2. ipwho.is
             if (!data) data = await tryFetch('ipwho.is', 'https://ipwho.is/', async res => {
                 const d = await res.json();
-                return (d.success && d.ip) ? {
-                    ip: d.ip, country: d.country, city: d.city,
-                    timezone: d.timezone?.id || 'N/A',
-                    org: d.connection?.isp || d.connection?.org || 'N/A'
-                } : null;
+                return (d.success && d.ip) ? { ip: d.ip, country: d.country, city: d.city, timezone: d.timezone?.id || 'N/A', org: d.connection?.isp || d.connection?.org || 'N/A' } : null;
             });
 
-            // 3. ipapi.co
             if (!data) data = await tryFetch('ipapi.co', 'https://ipapi.co/json/', async res => {
                 const d = await res.json();
                 return (!d.error && d.ip) ? { ip: d.ip, country: d.country_name, city: d.city, timezone: d.timezone, org: d.org } : null;
             });
 
-            // 4. ip.sb
             if (!data) data = await tryFetch('ip.sb', 'https://api.ip.sb/geoip', async res => {
                 const d = await res.json();
                 return d.ip ? { ip: d.ip, country: d.country, city: d.city, timezone: d.timezone, org: d.isp } : null;
             });
 
-            // 5. ipify — IP only, last resort
             if (!data) data = await tryFetch('ipify', 'https://api.ipify.org?format=json', async res => {
                 const d = await res.json();
                 return d.ip ? { ip: d.ip, country: 'N/A', city: 'N/A', timezone: 'N/A', org: 'N/A' } : null;
             });
 
             if (!data) {
-                content.innerHTML = `<div class="error">
-                    Failed to fetch IP information.<br>Please check your connection.
-                    <details><summary>Debug info</summary><pre>${log.join('\n')}</pre></details>
-                </div>`;
+                content.innerHTML = `<div class="error">Failed to fetch IP information.<br>Please check your connection.<details><summary>Debug info</summary><pre>${log.join('\n')}</pre></details></div>`;
                 return;
             }
 
-            // Try to get IPv6
             let ipv6 = 'N/A';
             try {
                 const r = await fetch('https://api64.ipify.org?format=json', { signal: AbortSignal.timeout(4000) });
@@ -124,32 +245,32 @@
                 if (d.ip && d.ip.includes(':')) ipv6 = d.ip;
             } catch(e) {}
 
-            // If cloudflare only gave us country code, enrich with ipwho.is using the known IP
             if (data.city === 'N/A' && data.ip) {
-                const enriched = await tryFetch('ipwho.is/'+data.ip, `https://ipwho.is/${data.ip}`, async res => {
+                const enriched = await tryFetch('ipwho.is/ip', `https://ipwho.is/${data.ip}`, async res => {
                     const d = await res.json();
-                    return (d.success && d.ip) ? {
-                        ip: d.ip, country: d.country, city: d.city,
-                        timezone: d.timezone?.id || 'N/A',
-                        org: d.connection?.isp || d.connection?.org || 'N/A'
-                    } : null;
+                    return (d.success && d.ip) ? { ip: d.ip, country: d.country, city: d.city, timezone: d.timezone?.id || 'N/A', org: d.connection?.isp || d.connection?.org || 'N/A' } : null;
                 });
                 if (enriched) data = enriched;
             }
 
+            const tzFormatted = formatTimezone(data.timezone);
+
             const rows = [
-                { label: 'IPv4 Address',       value: data.ip },
-                { label: 'IPv6 Address',       value: ipv6 },
-                { label: 'Country',            value: data.country },
-                { label: 'City',               value: data.city },
-                { label: 'Time Zone',          value: data.timezone },
-                { label: 'ISP / Organization', value: data.org }
+                { icon: '🔴', bg: 'rgba(192,57,43,0.15)', label: 'IPv4 Address', value: data.ip,      cls: 'blood-red' },
+                { icon: '🟣', bg: 'rgba(120,80,255,0.12)', label: 'IPv6 Address', value: ipv6,         cls: '' },
+                { icon: '🌍', bg: 'rgba(0,210,150,0.12)',  label: 'Country',      value: data.country, cls: '' },
+                { icon: '🏙️', bg: 'rgba(255,160,0,0.12)', label: 'City',         value: data.city,    cls: '' },
+                { icon: '🕐', bg: 'rgba(255,80,120,0.12)', label: 'Time Zone',    value: tzFormatted,  cls: '' },
+                { icon: '📡', bg: 'rgba(0,210,150,0.10)', label: 'ISP / Organization', value: data.org, cls: '' },
             ];
 
             content.innerHTML = rows.map(r => `
                 <div class="row">
-                    <span class="label">${r.label}</span>
-                    <span class="value">${r.value || 'N/A'}</span>
+                    <div class="row-left">
+                        <div class="row-icon" style="background:${r.bg}">${r.icon}</div>
+                        <span class="label">${r.label}</span>
+                    </div>
+                    <span class="value ${r.cls}">${r.value || 'N/A'}</span>
                 </div>`).join('');
         }
 
