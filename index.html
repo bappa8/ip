@@ -52,45 +52,41 @@
         }
 
         async function tryAPIs() {
-            // 1. ipwho.is — HTTPS, free, no token, confirmed working
             try {
                 const res = await fetchWithTimeout('https://ipwho.is/');
                 const data = await res.json();
                 if (data.success && data.ip) {
                     return {
                         ip:       data.ip,
-                        country:  data.country,
-                        city:     data.city,
-                        timezone: data.timezone && data.timezone.id ? data.timezone.id : 'N/A',
-                        org:      data.connection && (data.connection.isp || data.connection.org)
-                                    ? (data.connection.isp || data.connection.org) : 'N/A'
+                        country:  data.country  ?? 'N/A',
+                        city:     data.city      ?? 'N/A',
+                        timezone: data.timezone?.id ?? 'N/A',
+                        org:      data.connection?.isp ?? data.connection?.org ?? 'N/A'
                     };
                 }
-            } catch (e) { console.log('ipwho.is failed:', e); }
+            } catch (e) {}
 
-            // 2. ipapi.co — HTTPS fallback
             try {
                 const res = await fetchWithTimeout('https://ipapi.co/json/');
                 const data = await res.json();
                 if (!data.error && data.ip) {
                     return {
                         ip:       data.ip,
-                        country:  data.country_name,
-                        city:     data.city,
-                        timezone: data.timezone,
-                        org:      data.org
+                        country:  data.country_name ?? 'N/A',
+                        city:     data.city          ?? 'N/A',
+                        timezone: data.timezone      ?? 'N/A',
+                        org:      data.org            ?? 'N/A'
                     };
                 }
-            } catch (e) { console.log('ipapi.co failed:', e); }
+            } catch (e) {}
 
-            // 3. Last resort: ipify (IP only)
             try {
                 const res = await fetchWithTimeout('https://api.ipify.org?format=json');
                 const data = await res.json();
                 if (data.ip) {
                     return { ip: data.ip, country: 'N/A', city: 'N/A', timezone: 'N/A', org: 'N/A' };
                 }
-            } catch (e) { console.log('ipify failed:', e); }
+            } catch (e) {}
 
             return null;
         }
@@ -121,14 +117,11 @@
                 { label: 'ISP / Organization', value: data.org }
             ];
 
-            let html = '';
-            for (const r of rows) {
-                html += `<div class="row">
+            content.innerHTML = rows.map(r => `
+                <div class="row">
                     <span class="label">${r.label}</span>
                     <span class="value">${r.value || 'N/A'}</span>
-                </div>`;
-            }
-            content.innerHTML = html;
+                </div>`).join('');
         }
 
         load();
